@@ -217,6 +217,87 @@ describe("layout-audit.browser", () => {
     expect(collect()).toBe(collect());
   });
 
+  // A "draw the line in" SVG entrance (stroke-dasharray/stroke-dashoffset
+  // animating on a <path> whose `d` never changes) shares the exact same
+  // blind spot as the font-axis case above: no bbox change (the path's
+  // geometry is static — only how much of the stroke is dashed-visible
+  // moves) and no opacity change. `check` false-positived sweep_static on a
+  // genuinely, visibly animating composition until both dash properties
+  // joined the fingerprint. The rect is deliberately DEGENERATE (height: 0,
+  // the real bbox of a perfectly horizontal path regardless of stroke-width)
+  // to prove the dedicated stroke-dash loop catches this — not the
+  // per-element loop above, which isVisibleElement's bbox gate would exclude
+  // this exact shape from.
+  it("changes the sweep fingerprint when only stroke-dashoffset moves", () => {
+    document.body.innerHTML = `
+      <div id="root" data-composition-id="main" data-width="640" data-height="360">
+        <svg id="diagram"><path id="connector" d="M 10 10 L 300 10" /></svg>
+      </div>
+    `;
+
+    let dashOffset = "200";
+    installGeometry(
+      {
+        root: rect({ left: 0, top: 0, width: 640, height: 360 }),
+        diagram: rect({ left: 0, top: 0, width: 640, height: 360 }),
+        connector: rect({ left: 10, top: 10, width: 290, height: 0 }),
+      },
+      {
+        connector: {
+          strokeDasharray: "200",
+          get strokeDashoffset() {
+            return dashOffset;
+          },
+        } as Partial<CSSStyleDeclaration>,
+      },
+    );
+
+    installAuditScript();
+    const collect = (window as unknown as { __hyperframesLayoutGeometry: () => string })
+      .__hyperframesLayoutGeometry;
+
+    const drawStart = collect(); // fully dash-hidden
+    dashOffset = "100"; // half drawn-in
+    const drawMid = collect();
+    dashOffset = "0"; // fully revealed
+    const drawEnd = collect();
+
+    expect(drawMid).not.toBe(drawStart);
+    expect(drawEnd).not.toBe(drawMid);
+  });
+
+  // The other direction, matching the font-axis counter-test above: an
+  // identical scene, dash properties included, must hash identically —
+  // otherwise the fingerprint would vary on its own and sweep_static would
+  // never fire, making every green layout verdict meaningless.
+  it("keeps the sweep fingerprint identical when nothing moves, stroke dash included", () => {
+    document.body.innerHTML = `
+      <div id="root" data-composition-id="main" data-width="640" data-height="360">
+        <svg id="diagram"><path id="connector" d="M 10 10 L 300 10" /></svg>
+      </div>
+    `;
+
+    installGeometry(
+      {
+        root: rect({ left: 0, top: 0, width: 640, height: 360 }),
+        diagram: rect({ left: 0, top: 0, width: 640, height: 360 }),
+        connector: rect({ left: 10, top: 10, width: 290, height: 0 }),
+      },
+      {
+        connector: {
+          strokeDasharray: "200",
+          strokeDashoffset: "0",
+        } as Partial<CSSStyleDeclaration>,
+      },
+    );
+
+    installAuditScript();
+    const collect = (window as unknown as { __hyperframesLayoutGeometry: () => string })
+      .__hyperframesLayoutGeometry;
+
+    expect(collect()).toBe(collect());
+  });
+
   it("uses authored canvas dimensions when the root bounding rect is degenerate", () => {
     document.body.innerHTML = `
       <div id="root" data-composition-id="main" data-width="640" data-height="360">

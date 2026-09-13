@@ -1699,6 +1699,32 @@
       if (!isVisibleElement(media)) continue;
       parts.push(`p:${mediaPixelHash(media)}`);
     }
+    // A "draw the line in" SVG entrance (stroke-dasharray/stroke-dashoffset
+    // animating on a shape whose geometry never changes) shares the same
+    // pixel-only-motion blind spot — no bbox change, no opacity change — but
+    // can't simply join the per-element loop above: a perfectly horizontal or
+    // vertical connector line has near-zero width or height in its raw path
+    // geometry regardless of stroke-width, so `isVisibleElement`'s bbox gate
+    // (`elements`, above) routinely excludes exactly the shapes this fix is
+    // for. Walk every stroke-capable shape independently, gated only on
+    // paint-visibility (shaftIsPainted, defined earlier for connector
+    // detection — its display/visibility/opacity check has nothing
+    // connector-specific about it) rather than a non-degenerate bounding box.
+    // Parsed and rounded the same way shaftDashHidden already does, so
+    // (a) "none" and "0" both settle to the same value (both render as a
+    // solid, undashed stroke) and (b) float-serialization jitter across
+    // otherwise-identical samples can't manufacture a false difference.
+    for (const shape of root.querySelectorAll(
+      "path, circle, ellipse, rect, line, polyline, polygon",
+    )) {
+      if (!shaftIsPainted(shape)) continue;
+      const shapeStyle = getComputedStyle(shape);
+      const dashArray = round(
+        Number.parseFloat(String(shapeStyle.strokeDasharray).split(/[\s,]+/)[0]) || 0,
+      );
+      const dashOffset = round(Number.parseFloat(shapeStyle.strokeDashoffset) || 0);
+      parts.push(`d:${dashArray},${dashOffset}`);
+    }
     return parts.join("|");
   };
 
