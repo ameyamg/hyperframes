@@ -166,6 +166,22 @@ export const EFFECT_COPY: Record<string, EffectCopy> = {
       level_out: { label: "Level after" },
     },
   },
+  truepeak: {
+    title: "True-Peak Ceiling",
+    does: "Pulls the loudest moments, including the ones between samples, down toward a target ceiling.",
+    reachFor: "Peaks need to stay under a delivery limit.",
+    primary: "ceiling",
+    primaryEnds: { low: "A lot of headroom", high: "Little headroom" },
+    params: {
+      ceiling: {
+        label: "Target ceiling",
+        hint: "Measured with a 4x estimate. Dense full-band sound can end up to about 1.7 dB above it, so leave headroom: -3 for a -1 dBTP limit.",
+        ends: { low: "A lot of headroom", high: "Little headroom" },
+      },
+      lookahead: { label: "How far ahead it looks" },
+      release: { label: "How fast it recovers" },
+    },
+  },
   gate: {
     title: "Silence the Gaps",
     does: "Mutes the pauses. Whatever sits underneath stays — this closes the gaps, it does not remove noise.",
@@ -396,6 +412,7 @@ export const SUMMARY: Record<string, (p: P) => string> = {
   compressor: (p) =>
     `Evening out — ${strength(Math.min(1, (n(p.ratio, 3) - 1) / 7), ["gentle", "moderate", "firm"])}`,
   limiter: (p) => `Nothing louder than ${n(p.limit, -1)} dB`,
+  truepeak: (p) => `Peaks pulled down toward ${n(p.ceiling, -1)} dBTP`,
   gate: (p) => `Closing gaps quieter than ${n(p.threshold, -45)} dB`,
   saturate: (p) =>
     `${strength(Math.min(1, Math.abs(n(p.threshold, -6)) / 30), ["A little", "Some", "Heavy"])} warmth`,
