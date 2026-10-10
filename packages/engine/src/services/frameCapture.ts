@@ -1061,10 +1061,9 @@ async function initDrawElementOrTransparentBackground(
         const cssFx = await detectCssEffectRisk(page);
         if (cssFx) {
           session.deGateReason = `css_effect:${(cssFx.split(":")[0] ?? "").replace(/[^a-z-]/gi, "")}`;
-          // Full specific effect ("filter:blur" / "filter:drop-shadow" /
-          // "backdrop-filter" / "clip-path") — `deGateReason` sanitizes
-          // this to the low-cardinality prefix; `deFallbackTrigger` keeps
-          // the fine-grained value for the diagnostic profile emission.
+          // Full specific effect from `detectCssEffectRisk` (e.g. "filter:blur",
+          // "mix-blend-mode", "webgl-context") — `deGateReason` keeps its
+          // low-cardinality prefix, `deFallbackTrigger` the full value.
           session.deFallbackTrigger = cssFx;
           console.log(
             `[engine] fast capture: falling back to ${session.launchCaptureMode} capture — ` +
